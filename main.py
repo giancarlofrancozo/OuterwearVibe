@@ -102,7 +102,7 @@ def cliente_atual(
         raise HTTPException(status_code=401, detail="Cliente não encontrado")
     return cliente
 
-@app.post("/produtos", response_model=schemas.ProdutoResposta, status_code=201)
+@app.post("/produtos", response_model=schemas.ProdutoResposta, status_code=201, dependencies=[Depends(verifica_admin)])
 def criar_produto(dados: schemas.ProdutoCriar, db: Session = Depends(get_db)):
     produto = models.Produto(**dados.model_dump())
     db.add(produto)
