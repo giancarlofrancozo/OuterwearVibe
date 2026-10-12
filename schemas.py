@@ -81,6 +81,7 @@ class PedidoResposta(BaseModel):
     status: str
     codigo_rastreamento: str | None = None
     total: float
+    data: datetime
     itens: list[ItemPedidoResposta]
 
     model_config = {"from_attributes": True}
