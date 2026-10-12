@@ -9,6 +9,8 @@ def criar_link_pagamento(pedido_id: int, itens: list[dict]) -> str:
     itens: lista de dicionários com 'titulo', 'quantidade' e 'preco_unitario'.
     Retorna a URL de pagamento do Mercado Pago.
     """
+    base = os.environ.get("PUBLIC_URL", "http://127.0.0.1:8000")
+
     dados = {
         "items": [
             {
@@ -21,14 +23,14 @@ def criar_link_pagamento(pedido_id: int, itens: list[dict]) -> str:
         ],
         "external_reference": str(pedido_id),
         "back_urls": {
-            "success": "http://127.0.0.1:8000/",
-            "failure": "http://127.0.0.1:8000/",
-            "pending": "http://127.0.0.1:8000/",
+            "success": f"{base}/vitrine",
+            "failure": f"{base}/vitrine",
+            "pending": f"{base}/vitrine",
         },
     }
 
     if os.environ.get("PUBLIC_URL"):
-        dados["notification_url"] = f"{os.environ['PUBLIC_URL']}/webhook/mercadopago"
+        dados["notification_url"] = f"{base}/webhook/mercadopago"
 
     resposta = sdk.preference().create(dados)
     return resposta["response"]["init_point"]
