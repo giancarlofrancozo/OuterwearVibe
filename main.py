@@ -70,6 +70,9 @@ def verifica_admin(x_admin_key: str = Header(...)):
 def inicio():
     return {"message": "Loja no ar"}
 
+@app.get("/admin", include_in_schema=False)
+def painel_admin():
+    return FileResponse(os.path.join("static", "admin.html"))
 
 @app.get("/vitrine", include_in_schema=False)
 def vitrine():

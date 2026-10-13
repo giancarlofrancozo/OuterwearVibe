@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Painel - Outerwear Vibe</title>
+  <style>
+    body { font-family:Arial,sans-serif; background:#f5f5f5; margin:0; padding:24px; color:#333; }
+    .container { max-width:900px; margin:0 auto; }
+    h1 { margin-top:0; }
+    .card { background:#fff; border-radius:8px; padding:20px; box-shadow:0 1px 4px rgba(0,0,0,0.1); margin-bottom:24px; }
+    .grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .grid .full { grid-column:1 / -1; }
+    label { font-size:13px; color:#666; display:block; margin-bottom:4px; }
+    input, textarea { width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; font-size:14px; box-sizing:border-box; }
+    textarea { resize:vertical; min-height:60px; }
+    button { padding:10px 16px; border:none; border-radius:6px; background:#222; color:#fff; font-size:14px; cursor:pointer; }
+    button:hover { background:#444; }
+    .msg { margin-top:12px; font-size:14px; }
+    .msg.ok { color:#1a7f37; }
+    .msg.erro { color:#c00; }
+    table { width:100%; border-collapse:collapse; font-size:14px; }
+    th, td { text-align:left; padding:8px; border-bottom:1px solid #eee; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Painel de produtos</h1>
+
+    <div class="card">
+      <label for="adminKey">Chave de administrador</label>
+      <input type="password" id="adminKey" placeholder="Digite a chave para continuar">
+      <p style="font-size:12px;color:#888;margin:6px 0 0;">A chave fica só nesta página. Se você recarregar, precisa digitar de novo.</p>
+    </div>
+
+    <div class="card">
+      <h2 style="margin-top:0;">Cadastrar produto</h2>
+      <div class="grid">
+        <div class="full">
+          <label for="nome">Nome</label>
+          <input type="text" id="nome">
+        </div>
+        <div class="full">
+          <label for="descricao">Descrição</label>
+          <textarea id="descricao"></textarea>
+        </div>
+        <div>
+          <label for="preco">Preço (R$)</label>
+          <input type="number" id="preco" step="0.01" min="0">
+        </div>
+        <div>
+          <label for="estoque">Estoque</label>
+          <input type="number" id="estoque" min="0" step="1">
+        </div>
+        <div>
+          <label for="categoria">Categoria</label>
+          <input type="text" id="categoria" placeholder="ex: jaquetas">
+        </div>
+        <div>
+          <label for="imagemUrl">Link da imagem</label>
+          <input type="text" id="imagemUrl" placeholder="https://...">
+        </div>
+        <div class="full">
+          <button id="salvar">Cadastrar produto</button>
+          <div class="msg" id="msg"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 style="margin-top:0;">Produtos disponíveis</h2>
+      <table>
+        <thead>
+          <tr><th>ID</th><th>Nome</th><th>Preço</th><th>Estoque</th><th>Categoria</th></tr>
+        </thead>
+        <tbody id="lista"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    const msg = document.getElementById("msg");
+
+    function mostrarMensagem(texto, tipo) {
+      msg.textContent = texto;
+      msg.className = "msg " + tipo;
+    }
+
+    function formatarPreco(v) {
+      return Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+    }
+
+    async function carregarLista() {
+      const res = await fetch("/produtos");
+      if (!res.ok) return;
+      const produtos = await res.json();
+      document.getElementById("lista").innerHTML = produtos.map(p =>
+        `<tr><td>${p.id}</td><td>${p.nome}</td><td>${formatarPreco(p.preco)}</td><td>${p.estoque}</td><td>${p.categoria || "-"}</td></tr>`
+      ).join("");
+    }
+
+    document.getElementById("salvar").addEventListener("click", async () => {
+      const chave = document.getElementById("adminKey").value.trim();
+      if (!chave) { mostrarMensagem("Digite a chave de administrador", "erro"); return; }
+
+      const dados = {
+        nome: document.getElementById("nome").value.trim(),
+        descricao: document.getElementById("descricao").value.trim() || null,
+        preco: parseFloat(document.getElementById("preco").value),
+        estoque: parseInt(document.getElementById("estoque").value) || 0,
+        categoria: document.getElementById("categoria").value.trim() || null,
+        imagem_url: document.getElementById("imagemUrl").value.trim() || null,
+      };
+
+      if (!dados.nome || isNaN(dados.preco)) {
+        mostrarMensagem("Preencha pelo menos o nome e o preço", "erro");
+        return;
+      }
+
+      const res = await fetch("/produtos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-admin-key": chave },
+        body: JSON.stringify(dados),
+      });
+
+      if (res.status === 201) {
+        mostrarMensagem("Produto cadastrado com sucesso", "ok");
+        document.querySelectorAll("#nome, #descricao, #preco, #estoque, #categoria, #imagemUrl")
+          .forEach(el => el.value = "");
+        carregarLista();
+      } else if (res.status === 403) {
+        mostrarMensagem("Chave de administrador incorreta", "erro");
+      } else {
+        const data = await res.json().catch(() => ({}));
+        mostrarMensagem(typeof data.detail === "string" ? data.detail : "Erro ao cadastrar produto", "erro");
+      }
+    });
+
+    carregarLista();
+  </script>
+</body>
+</html>
