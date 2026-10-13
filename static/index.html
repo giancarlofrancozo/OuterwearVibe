@@ -98,7 +98,7 @@
     .return-policy strong { color:#fff; }
     .auth-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:300; display:flex; align-items:center; justify-content:center; opacity:0; pointer-events:none; transition:opacity 0.3s; padding:24px; }
     .auth-overlay.open { opacity:1; pointer-events:auto; }
-    .auth-panel { background:var(--card-bg); border-radius:12px; width:100%; max-width:380px; padding:24px; box-shadow:0 8px 24px rgba(0,0,0,0.2); transform:scale(0.95); transition:transform 0.3s; text-align:center; }
+    .auth-panel { background:var(--card-bg); border-radius:12px; width:100%; max-width:380px; padding:24px; box-shadow:0 8px 24px rgba(0,0,0,0.2); transform:scale(0.95); transition:transform 0.3s; text-align:center; max-height:90vh; overflow-y:auto; }
     .auth-overlay.open .auth-panel { transform:scale(1); }
     .auth-panel h2 { margin:0 0 16px; font-size:20px; }
     .auth-panel .tab-bar { display:flex; margin-bottom:16px; gap:4px; }
@@ -190,26 +190,6 @@
     </div>
   </footer>
 
-<div class="auth-overlay" id="checkoutOverlay">
-  <div class="auth-panel">
-    <h2>Endereço de entrega</h2>
-    <div class="auth-form">
-      <input type="text" id="endCep" placeholder="CEP (00000-000)">
-      <input type="text" id="endRua" placeholder="Rua">
-      <input type="text" id="endNumero" placeholder="Número">
-      <input type="text" id="endComplemento" placeholder="Complemento (opcional)">
-      <input type="text" id="endBairro" placeholder="Bairro">
-      <input type="text" id="endCidade" placeholder="Cidade">
-      <input type="text" id="endEstado" placeholder="Estado (sigla, ex: PR)" maxlength="2">
-      <button id="confirmarEndereco">Confirmar e pagar</button>
-      <button id="cancelarEndereco" style="background:#999;">Voltar</button>
-      <div class="auth-error" id="enderecoError"></div>
-    </div>
-  </div>
-</div>
-
-
-
   <div class="cart-overlay" id="cartOverlay"></div>
   <aside class="cart-sidebar" id="cartSidebar">
     <div class="cart-header">
@@ -239,7 +219,7 @@
 
   <div class="auth-overlay" id="authOverlay">
     <div class="auth-panel">
-      <h2></h2>
+      <h2>Sua conta</h2>
       <div class="tab-bar">
         <button class="active" data-tab="login">Entrar</button>
         <button data-tab="register">Cadastrar</button>
@@ -258,6 +238,24 @@
         <input type="text" id="regEndereco" placeholder="Endereço (opcional)">
         <button id="registerSubmit">Cadastrar</button>
         <div class="auth-error" id="registerError"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="auth-overlay" id="checkoutOverlay">
+    <div class="auth-panel">
+      <h2>Endereço de entrega</h2>
+      <div class="auth-form">
+        <input type="text" id="endCep" placeholder="CEP (00000-000)">
+        <input type="text" id="endRua" placeholder="Rua">
+        <input type="text" id="endNumero" placeholder="Número">
+        <input type="text" id="endComplemento" placeholder="Complemento (opcional)">
+        <input type="text" id="endBairro" placeholder="Bairro">
+        <input type="text" id="endCidade" placeholder="Cidade">
+        <input type="text" id="endEstado" placeholder="Estado (sigla, ex: PR)" maxlength="2">
+        <button id="confirmarEndereco">Confirmar e pagar</button>
+        <button id="cancelarEndereco" style="background:#999;">Voltar</button>
+        <div class="auth-error" id="enderecoError"></div>
       </div>
     </div>
   </div>
@@ -558,23 +556,54 @@
       });
     }
 
-    async function checkout(){
+    function abrirCheckout(){
       if(!token){ abrirAuth(); return; }
       if(carrinho.length===0){ mostrarToast("Carrinho vazio"); return; }
+      fecharCarrinho();
+      document.getElementById("enderecoError").textContent="";
+      document.getElementById("checkoutOverlay").classList.add("open");
+    }
+
+    function fecharCheckout(){
+      document.getElementById("checkoutOverlay").classList.remove("open");
+    }
+
+    function mensagemErro(data, padrao){
+      if(Array.isArray(data.detail)) return data.detail[0].msg.replace("Value error, ","");
+      return data.detail || padrao;
+    }
+
+    async function confirmarPedido(){
+      const errEl=document.getElementById("enderecoError");
+      const endereco={
+        cep:document.getElementById("endCep").value.trim(),
+        rua:document.getElementById("endRua").value.trim(),
+        numero:document.getElementById("endNumero").value.trim(),
+        complemento:document.getElementById("endComplemento").value.trim() || null,
+        bairro:document.getElementById("endBairro").value.trim(),
+        cidade:document.getElementById("endCidade").value.trim(),
+        estado:document.getElementById("endEstado").value.trim(),
+      };
+      if(!endereco.cep||!endereco.rua||!endereco.numero||!endereco.bairro||!endereco.cidade||!endereco.estado){
+        errEl.textContent="Preencha todos os campos obrigatórios";
+        return;
+      }
+
       const itens=carrinho.map(item=>({ produto_id:item.produto_id, quantidade:item.quantidade }));
-      const res=await api(API+"/pedidos",{ method:"POST", body:JSON.stringify({itens}) });
-      if(!res.ok){ const data=await res.json().catch(()=>({})); mostrarToast(data.detail||"Erro ao finalizar pedido"); return; }
+      const res=await api(API+"/pedidos",{ method:"POST", body:JSON.stringify({itens, endereco}) });
+      if(!res.ok){ const data=await res.json().catch(()=>({})); errEl.textContent=mensagemErro(data,"Erro ao criar pedido"); return; }
       const pedido=await res.json();
+
       const payRes=await api(API+"/pedidos/"+pedido.id+"/pagar",{ method:"POST" });
-      if(!payRes.ok){ const data=await payRes.json().catch(()=>({})); mostrarToast(data.detail||"Erro ao gerar pagamento"); return; }
+      if(!payRes.ok){ const data=await payRes.json().catch(()=>({})); errEl.textContent=mensagemErro(data,"Erro ao gerar pagamento"); return; }
       const pagamento=await payRes.json();
+
       carrinho=[];
       salvarCarrinho();
       atualizarBadge();
       renderProdutos();
-      fecharCarrinho();
-      mostrarToast("Pedido #"+pedido.id+" criado! Redirecionando para o pagamento...");
-      window.location.href = pagamento.link_pagamento;
+      fecharCheckout();
+      window.location.href=pagamento.link_pagamento;
     }
 
     async function carregarMeusPedidos(){
@@ -594,8 +623,9 @@
       let html = "";
       for(const p of pedidos){
         const itensHtml = p.itens.map(i=>'<span style="display:inline-block;margin-right:8px;">'+i.quantidade+'x — Produto #'+i.produto_id+' (R$ '+i.preco_unitario.toFixed(2)+')</span>').join("");
+        const enderecoHtml = p.rua ? '<br>Entrega: '+p.rua+', '+p.numero+(p.complemento?' - '+p.complemento:'')+' - '+p.bairro+', '+p.cidade+'/'+p.estado+' - '+p.cep : '';
         html += '<div class="product-card" style="grid-column:auto;"><h3 class="product-name">Pedido #'+p.id+'</h3>';
-        html += '<p class="product-desc">Data: '+new Date(p.data).toLocaleDateString("pt-BR")+'<br>Status: '+p.status+(p.codigo_rastreamento?'<br>Rastreio: '+p.codigo_rastreamento:"")+'</p>';
+        html += '<p class="product-desc">Data: '+new Date(p.data).toLocaleDateString("pt-BR")+'<br>Status: '+p.status+(p.codigo_rastreamento?'<br>Rastreio: '+p.codigo_rastreamento:"")+enderecoHtml+'</p>';
         html += '<div class="product-price">Total: '+formatarPreco(p.total)+'</div>';
         html += '<div class="product-stock">'+p.itens.length+' item(ns)</div>';
         html += '<p style="font-size:13px;color:var(--text-muted);margin:0;">'+itensHtml+'</p></div>';
@@ -634,7 +664,10 @@
       document.getElementById("cartBtn").addEventListener("click",abrirCarrinho);
       document.getElementById("cartClose").addEventListener("click",fecharCarrinho);
       document.getElementById("cartOverlay").addEventListener("click",fecharCarrinho);
-      document.getElementById("checkoutBtn").addEventListener("click",checkout);
+      document.getElementById("checkoutBtn").addEventListener("click",abrirCheckout);
+      document.getElementById("confirmarEndereco").addEventListener("click",confirmarPedido);
+      document.getElementById("cancelarEndereco").addEventListener("click",fecharCheckout);
+      document.getElementById("checkoutOverlay").addEventListener("click",e=>{ if(e.target.id==="checkoutOverlay") fecharCheckout(); });
       window.addEventListener("beforeunload",()=>{ salvarCarrinho(); });
       setupAuth();
       setupNavegacao();
