@@ -190,6 +190,26 @@
     </div>
   </footer>
 
+<div class="auth-overlay" id="checkoutOverlay">
+  <div class="auth-panel">
+    <h2>Endereço de entrega</h2>
+    <div class="auth-form">
+      <input type="text" id="endCep" placeholder="CEP (00000-000)">
+      <input type="text" id="endRua" placeholder="Rua">
+      <input type="text" id="endNumero" placeholder="Número">
+      <input type="text" id="endComplemento" placeholder="Complemento (opcional)">
+      <input type="text" id="endBairro" placeholder="Bairro">
+      <input type="text" id="endCidade" placeholder="Cidade">
+      <input type="text" id="endEstado" placeholder="Estado (sigla, ex: PR)" maxlength="2">
+      <button id="confirmarEndereco">Confirmar e pagar</button>
+      <button id="cancelarEndereco" style="background:#999;">Voltar</button>
+      <div class="auth-error" id="enderecoError"></div>
+    </div>
+  </div>
+</div>
+
+
+
   <div class="cart-overlay" id="cartOverlay"></div>
   <aside class="cart-sidebar" id="cartSidebar">
     <div class="cart-header">
