@@ -40,6 +40,13 @@ class Pedido(Base):
     status = Column(String, nullable=False, default="aguardando pagamento")
     codigo_rastreamento = Column(String, nullable=True)
     total = Column(Float, nullable=False)
+    cep = Column(String, nullable=False)
+    rua = Column(String, nullable=False)
+    numero = Column(String, nullable=False)
+    complemento = Column(String, nullable=True)
+    bairro = Column(String, nullable=False)
+    cidade = Column(String, nullable=False)
+    estado = Column(String, nullable=False)
 
     cliente = relationship("Cliente", backref="pedidos")
     itens = relationship("ItemPedido", back_populates="pedido")

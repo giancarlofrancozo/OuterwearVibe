@@ -121,7 +121,7 @@ def criar_produto(dados: schemas.ProdutoCriar, db: Session = Depends(get_db)):
     return produto
 
 
-@app.post("/pedidos", status_code=201)
+@app.post("/pedidos", response_model=schemas.PedidoResposta, status_code=201)
 def criar_pedido(
     dados: schemas.PedidoCriar,
     cliente: models.Cliente = Depends(cliente_atual),
@@ -153,12 +153,23 @@ def criar_pedido(
             )
         )
 
-    pedido = models.Pedido(cliente_id=cliente.id, total=total, itens=itens)
+    pedido = models.Pedido(
+        cliente_id=cliente.id,
+        total=total,
+        itens=itens,
+        cep=dados.endereco.cep,
+        rua=dados.endereco.rua,
+        numero=dados.endereco.numero,
+        complemento=dados.endereco.complemento,
+        bairro=dados.endereco.bairro,
+        cidade=dados.endereco.cidade,
+        estado=dados.endereco.estado,
+    )
     db.add(pedido)
     db.commit()
     db.refresh(pedido)
 
-    return {"id": pedido.id, "status": pedido.status, "total": pedido.total}
+    return pedido
 
 
 @app.get("/meus-pedidos", response_model=list[schemas.PedidoResposta])

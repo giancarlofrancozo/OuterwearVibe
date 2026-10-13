@@ -53,6 +53,28 @@ class ProdutoCriar(BaseModel):
     estoque: int = 0
     categoria: str | None = None
 
+class EnderecoEntrega(BaseModel):
+    cep: str
+    rua: str
+    numero: str
+    complemento: str | None = None
+    bairro: str
+    cidade: str
+    estado: str
+
+    @field_validator("cep")
+    @classmethod
+    def valida_cep(cls, valor):
+        if not re.fullmatch(r"\d{5}-?\d{3}", valor):
+            raise ValueError("CEP deve estar no formato 00000-000")
+        return valor
+
+    @field_validator("estado")
+    @classmethod
+    def valida_estado(cls, valor):
+        if len(valor) != 2:
+            raise ValueError("Estado deve ser a sigla com 2 letras, como SP")
+        return valor.upper()
 
 class ProdutoResposta(ProdutoCriar):
     id: int
@@ -66,6 +88,7 @@ class ItemPedidoCriar(BaseModel):
 
 class PedidoCriar(BaseModel):
     itens: list[ItemPedidoCriar]
+    endereco: EnderecoEntrega
 
 
 class ItemPedidoResposta(BaseModel):
@@ -82,6 +105,13 @@ class PedidoResposta(BaseModel):
     codigo_rastreamento: str | None = None
     total: float
     data: datetime
+    cep: str
+    rua: str
+    numero: str
+    complemento: str | None = None
+    bairro: str
+    cidade: str
+    estado: str
     itens: list[ItemPedidoResposta]
 
     model_config = {"from_attributes": True}
