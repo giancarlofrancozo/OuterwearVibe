@@ -131,9 +131,12 @@
       } else if (res.status === 403) {
         mostrarMensagem("Chave de administrador incorreta", "erro");
       } else {
-        const data = await res.json().catch(() => ({}));
-        mostrarMensagem(typeof data.detail === "string" ? data.detail : "Erro ao cadastrar produto", "erro");
-      }
+      const data = await res.json().catch(() => ({}));
+      const detalhe = Array.isArray(data.detail)
+        ? data.detail.map(d => d.loc.join(" > ") + ": " + d.msg).join(" | ")
+        : (data.detail || "sem detalhe");
+      mostrarMensagem("Erro " + res.status + ": " + detalhe, "erro");
+    } 
     });
 
     carregarLista();
