@@ -6,15 +6,16 @@
   <title>Outerwear Vibe</title>
   <style>
     :root {
-      --bg: #F4F1EC;
+      --bg: #F2F4F8;
       --surface: #FFFFFF;
-      --ink: #161412;
-      --muted: #7A7168;
-      --accent: #7B3A2E;
-      --line: #E4DFD6;
-      --shadow: 0 1px 3px rgba(22,20,18,0.06), 0 1px 2px rgba(22,20,18,0.04);
-      --shadow-hover: 0 6px 18px rgba(22,20,18,0.08), 0 2px 6px rgba(22,20,18,0.05);
-      --radius: 10px;
+      --ink: #0E1220;
+      --muted: #5B6676;
+      --accent: #0B4F6C;
+      --accent-soft: #E3EDF3;
+      --line: #E3E7EE;
+      --shadow: 0 1px 3px rgba(14,18,32,0.05), 0 1px 2px rgba(14,18,32,0.03);
+      --shadow-hover: 0 8px 22px rgba(14,18,32,0.10), 0 2px 6px rgba(14,18,32,0.05);
+      --radius: 12px;
     }
     * { box-sizing: border-box; }
     html { -webkit-text-size-adjust: 100%; }
@@ -30,7 +31,13 @@
       -moz-osx-font-smoothing: grayscale;
     }
     a { color: inherit; text-decoration: none; }
-    button { font-family: inherit; }
+    button { font-family: inherit; cursor: pointer; }
+    .brand-name {
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      color: var(--ink);
+    }
 
     header {
       background: var(--surface);
@@ -47,19 +54,6 @@
     }
     header.scrolled { box-shadow: var(--shadow); }
     .brand { display: flex; align-items: center; gap: 10px; }
-    .brand-logo {
-      width: 38px;
-      height: 38px;
-      background: var(--accent);
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 700;
-      font-size: 18px;
-      color: #fff;
-      letter-spacing: -0.02em;
-    }
     .brand-name {
       font-size: 17px;
       font-weight: 600;
@@ -80,7 +74,8 @@
       border: none;
     }
     nav.menu a:hover, nav.menu button:hover { background: var(--bg); }
-    nav.menu a.active { background: var(--accent); color: #fff; }
+    nav.menu a.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+    nav.menu a:hover { background: var(--bg); }
     .cart-icon {
       background: transparent;
       border: 1px solid var(--line);
@@ -105,7 +100,10 @@
       min-width: 18px;
       text-align: center;
       line-height: 1.4;
+      transition: background 0.15s ease;
     }
+    .cart-badge:hover { background: #08384f; }
+    .cart-badge.empty-badge { background: var(--line); color: var(--muted); }
     .layout {
       display: flex;
       flex: 1;
@@ -123,7 +121,7 @@
       flex-direction: column;
       gap: 16px;
       position: sticky;
-      top: 88px;
+      top: 104px;
     }
     .catalog { flex: 1; min-width: 0; }
     .sidebar-section {
@@ -137,9 +135,15 @@
       margin: 0 0 12px;
       font-size: 12px;
       font-weight: 600;
-      letter-spacing: 0.06em;
+      letter-spacing: 0.08em;
       text-transform: uppercase;
       color: var(--muted);
+    }
+    .sidebar-section .section-intro {
+      font-size: 13px;
+      color: var(--muted);
+      margin: 0 0 6px;
+      line-height: 1.5;
     }
     .filter-group { display: flex; flex-direction: column; gap: 2px; }
     .filter-group label {
@@ -148,15 +152,31 @@
       gap: 8px;
       font-size: 14px;
       cursor: pointer;
-      padding: 5px 4px;
-      border-radius: 6px;
-      transition: background 0.15s ease;
+      padding: 5px 6px;
+      border-radius: 8px;
+      transition: background 0.15s ease, color 0.15s ease;
       color: var(--ink);
     }
-    .filter-group label:hover { background: var(--bg); }
+    .filter-group label:hover { background: var(--bg); color: var(--accent); }
     .filter-group input[type="radio"] { accent-color: var(--accent); }
     .cart-summary-line { font-size: 13px; color: var(--muted); margin: 0; line-height: 1.5; }
     .cart-summary-line strong { color: var(--ink); font-weight: 600; }
+    .cart-summary-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 12px;
+      color: var(--accent);
+      font-weight: 500;
+      margin-top: 6px;
+      text-decoration: none;
+      border: none;
+      background: none;
+      cursor: pointer;
+      padding: 0;
+      transition: color 0.15s ease;
+    }
+    .cart-summary-link:hover { color: #08384f; }
     .cart-sidebar {
       position: fixed;
       top: 0;
@@ -199,15 +219,19 @@
     .cart-close {
       background: none;
       border: none;
-      font-size: 22px;
+      width: 34px;
+      height: 34px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 8px;
       cursor: pointer;
       color: var(--muted);
-      padding: 4px 6px;
-      border-radius: 6px;
-      line-height: 1;
+      padding: 0;
       transition: background 0.15s ease, color 0.15s ease;
     }
     .cart-close:hover { background: var(--bg); color: var(--ink); }
+    .cart-close svg { display: block; }
     .cart-items { flex: 1; overflow-y: auto; padding: 8px 20px 16px; }
     .cart-empty {
       text-align: center;
@@ -261,16 +285,20 @@
     .cart-item-remove {
       background: none;
       border: none;
-      color: var(--muted);
+      width: 28px;
+      height: 28px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 7px;
       cursor: pointer;
-      font-size: 16px;
-      padding: 4px 6px;
-      border-radius: 6px;
-      line-height: 1;
-      transition: color 0.15s ease, background 0.15s ease;
+      color: var(--muted);
+      padding: 0;
+      transition: background 0.15s ease, color 0.15s ease;
       flex-shrink: 0;
     }
-    .cart-item-remove:hover { color: #b33a2e; background: var(--bg); }
+    .cart-item-remove:hover { background: var(--bg); color: #b93a2e; }
+    .cart-item-remove svg { display: block; width: 14px; height: 14px; }
     .cart-footer {
       padding: 16px 20px 20px;
       border-top: 1px solid var(--line);
@@ -302,7 +330,7 @@
     .cart-checkout-btn:hover { background: #6a3026; }
     .cart-checkout-btn:active { transform: scale(0.99); }
     .cart-checkout-btn:disabled { background: #b3a99c; cursor: not-allowed; }
-    .cart-checkout-btn:disabled:hover { background: #b3a99c; }
+    .cart-checkout-btn:disabled:hover { background: var(--line); }
     .catalog-header {
       display: flex;
       justify-content: space-between;
@@ -345,14 +373,15 @@
     }
     .product-card .product-img-wrap {
       position: relative;
-      border-radius: 8px;
+      border-radius: 10px;
       overflow: hidden;
       background: var(--line);
       margin-bottom: 12px;
+      aspect-ratio: 4 / 3;
     }
     .product-img {
       width: 100%;
-      aspect-ratio: 4 / 3;
+      height: 100%;
       object-fit: cover;
       display: block;
       transition: transform 0.35s ease;
@@ -370,7 +399,7 @@
       font-size: 13px;
       color: var(--muted);
       margin: 0 0 8px;
-      min-height: 40px;
+      min-height: 38px;
       display: -webkit-box;
       -webkit-line-clamp: 2;
       -webkit-box-orient: vertical;
@@ -395,21 +424,21 @@
     .btn-comprar {
       width: 100%;
       padding: 11px;
-      border: 1px solid var(--ink);
+      border: 1px solid var(--accent);
       border-radius: 8px;
-      background: var(--ink);
+      background: var(--accent);
       color: #fff;
       cursor: pointer;
       font-size: 13px;
       font-weight: 600;
-      transition: background 0.15s ease, transform 0.1s ease;
+      transition: background 0.15s ease, transform 0.1s ease, border-color 0.15s ease;
       margin-top: auto;
       letter-spacing: 0.01em;
     }
-    .btn-comprar:hover { background: #2a2622; }
+    .btn-comprar:hover { background: #08384f; border-color: #08384f; }
     .btn-comprar:active { transform: scale(0.99); }
-    .btn-comprar.added { background: var(--accent); border-color: var(--accent); }
-    .btn-comprar.added:hover { background: #6a3026; }
+    .btn-comprar.added { background: #1d6f8c; border-color: #1d6f8c; }
+    .btn-comprar.added:hover { background: #0f526a; }
     .btn-comprar:disabled { background: #b3a99c; border-color: #b3a99c; color: #fff; cursor: not-allowed; }
     .product-link {
       display: block;
@@ -421,7 +450,7 @@
       text-decoration: none;
       transition: color 0.15s ease;
     }
-    .product-link:hover { color: #6a3026; }
+    .product-link:hover { color: var(--accent); }
     .empty-state {
       grid-column: 1 / -1;
       text-align: center;
@@ -432,8 +461,18 @@
       background: var(--surface);
       font-size: 14px;
       line-height: 1.6;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
     }
-    .empty-state .empty-icon { font-size: 30px; margin-bottom: 8px; display: block; }
+    .empty-state .empty-icon {
+      width: 48px;
+      height: 48px;
+      margin: 0 auto;
+      opacity: 0.6;
+    }
     .detail-overlay {
       position: fixed;
       inset: 0;
@@ -469,11 +508,14 @@
       top: 0;
       background: var(--surface);
       border: none;
-      cursor: pointer;
-      padding: 10px 16px;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 16px;
       margin: 0;
       z-index: 1;
-      font-size: 14px;
       color: var(--muted);
       text-align: left;
       border-bottom: 1px solid var(--line);
@@ -481,6 +523,17 @@
       transition: color 0.15s ease, background 0.15s ease;
     }
     .detail-close:hover { color: var(--ink); background: var(--bg); }
+    .detail-close .close-icon {
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+    .detail-close:hover .close-icon { background: var(--bg); }
     .detail-body {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -572,6 +625,7 @@
       color: #fff;
       border-color: var(--accent);
     }
+    .tamanho-btn:active { transform: scale(0.98); }
     .detail-qty {
       display: flex;
       align-items: center;
@@ -598,15 +652,15 @@
     .detail-actions { display: flex; gap: 8px; }
     .detail-actions .btn-comprar { flex: 1; }
     .detail-back {
-      background: var(--line);
+      background: var(--surface);
       color: var(--ink);
       border: 1px solid var(--line);
     }
-    .detail-back:hover { background: var(--bg); border-color: var(--accent); }
+    .detail-back:hover { background: var(--bg); border-color: var(--accent); color: var(--accent); }
     footer {
-      background: #EAE5DC;
+      background: #EEF2F7;
       color: var(--ink);
-      padding: 40px 24px 28px;
+      padding: 44px 24px 32px;
       margin-top: auto;
       border-top: 1px solid var(--line);
     }
@@ -615,14 +669,14 @@
       margin: 0 auto;
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 28px;
+      gap: 32px;
     }
     .footer-section h4 {
       color: var(--ink);
       margin: 0 0 10px;
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 600;
-      letter-spacing: 0.06em;
+      letter-spacing: 0.08em;
       text-transform: uppercase;
     }
     .footer-section p, .footer-section a {
@@ -630,7 +684,7 @@
       margin: 5px 0;
       color: var(--ink);
       text-decoration: none;
-      opacity: 0.8;
+      opacity: 0.75;
       line-height: 1.55;
     }
     .footer-section a:hover { opacity: 1; color: var(--accent); }
@@ -645,7 +699,7 @@
       letter-spacing: 0.02em;
     }
     .return-policy {
-      background: var(--bg);
+      background: var(--surface);
       border: 1px solid var(--line);
       border-radius: 10px;
       padding: 14px 16px;
@@ -716,6 +770,7 @@
       background: var(--surface);
       color: var(--ink);
       box-shadow: var(--shadow);
+      font-weight: 600;
     }
     .auth-form {
       display: flex;
@@ -738,17 +793,18 @@
       padding: 11px;
       border: none;
       border-radius: 8px;
-      background: var(--ink);
+      background: var(--accent);
       color: #fff;
       font-size: 14px;
       font-weight: 600;
       cursor: pointer;
-      transition: background 0.15s ease;
+      transition: background 0.15s ease, transform 0.1s ease;
       letter-spacing: 0.01em;
     }
-    .auth-form button:hover { background: #2a2622; }
-    .auth-form button.secundario { background: var(--line); color: var(--ink); }
-    .auth-form button.secundario:hover { background: #d6d0c6; }
+    .auth-form button:hover { background: #08384f; }
+    .auth-form button:active { transform: scale(0.99); }
+    .auth-form button.secundario { background: var(--surface); color: var(--ink); border: 1px solid var(--line); }
+    .auth-form button.secundario:hover { background: var(--bg); border-color: var(--accent); color: var(--accent); }
     .auth-error {
       color: #b33a2e;
       font-size: 13px;
@@ -771,14 +827,14 @@
       opacity: 0;
       transition: transform 0.3s ease, opacity 0.3s ease;
       white-space: nowrap;
-      box-shadow: 0 6px 18px rgba(22,20,18,0.2);
+      box-shadow: 0 8px 22px rgba(14,18,32,0.25);
       border: 1px solid var(--line);
     }
     .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
     .hidden-el { display: none !important; }
     @media (max-width:880px) {
       .layout { flex-direction: column; padding: 20px 16px; gap: 20px; }
-      .sidebar { width: 100%; position: static; }
+      .sidebar { width: 100%; position: static; top: auto; }
       .detail-body { grid-template-columns: 1fr; }
       .cart-sidebar { width: 100%; right: -100%; }
     }
@@ -810,7 +866,19 @@
 <body>
   <header>
     <div class="brand">
-      <div class="brand-logo">O</div>
+      <div class="brand-logo" aria-hidden="true">
+        <svg width="26" height="26" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="3" y="3" width="42" height="42" rx="10" fill="#FFFFFF"/>
+          <path d="M12 16 L36 16 L36 18 L12 18 Z" fill="#0B4F6C"/>
+          <path d="M12 22 L36 22 L36 24 L12 24 Z" fill="#0B4F6C" opacity="0.65"/>
+          <path d="M12 28 L26 28 L26 34 L12 34 Z" fill="#0B4F6C"/>
+          <path d="M30 28 L36 28 L36 34 L30 34 Z" fill="#0B4F6C" opacity="0.45"/>
+          <path d="M12 22 L12 34" stroke="#0B4F6C" stroke-width="1.5" stroke-opacity="0.35"/>
+          <path d="M36 22 L36 34" stroke="#0B4F6C" stroke-width="1.5" stroke-opacity="0.35"/>
+          <circle cx="36" cy="38" r="1.6" fill="#0B4F6C"/>
+          <circle cx="12" cy="38" r="1.6" fill="#0B4F6C"/>
+        </svg>
+      </div>
       <span class="brand-name">Outerwear Vibe</span>
     </div>
     <nav class="menu">
@@ -841,6 +909,13 @@
         <p class="cart-summary-line">
           <span id="cartSummary">Carrinho vazio</span>
         </p>
+        <button class="cart-summary-link" id="cartSummaryBtn" type="button">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M5 12h14"></path>
+            <path d="M12 5l7 7-7 7"></path>
+          </svg>
+          Ver carrinho
+        </button>
       </div>
     </aside>
     <main class="catalog">
@@ -880,11 +955,25 @@
   <div class="cart-overlay" id="cartOverlay"></div>
   <aside class="cart-sidebar" id="cartSidebar">
     <div class="cart-header">
-      <h2>Seu carrinho</h2>
-      <button class="cart-close" id="cartClose">&times;</button>
+      <h2 style="margin:0;display:flex;align-items:center;gap:8px;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color:var(--accent);flex-shrink:0;">
+          <circle cx="9" cy="21" r="1"></circle>
+          <circle cx="20" cy="21" r="1"></circle>
+          <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+        </svg>
+        Seu carrinho
+      </h2>
+      <button class="cart-close" id="cartClose" type="button" aria-label="Fechar carrinho">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M18 6L6 18"></path>
+          <path d="M6 6l12 12"></path>
+        </svg>
+      </button>
     </div>
     <div class="cart-items" id="cartItems">
-      <div class="cart-empty">Seu carrinho está vazio.</div>
+      <div class="cart-empty"><span class="empty-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color:var(--muted)"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg></span>
+        Seu carrinho ainda está vazio.
+      </div>
     </div>
     <div class="cart-footer">
       <div class="cart-total">
@@ -897,7 +986,13 @@
 
   <div class="detail-overlay" id="detailOverlay">
     <div class="detail-panel">
-      <button class="detail-close" id="detailClose">&times; Fechar</button>
+      <button class="detail-close" id="detailClose" type="button" aria-label="Fechar detalhes">
+        <svg class="close-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M18 6L6 18"></path>
+          <path d="M6 6l12 12"></path>
+        </svg>
+        Fechar
+      </button>
       <div class="detail-body" id="detailBody"></div>
     </div>
   </div>
@@ -973,8 +1068,19 @@
 
     function atualizarBadge() {
       const total = carrinho.reduce((s, i) => s + i.quantidade, 0);
-      document.getElementById("cartBadge").textContent = total;
-      document.getElementById("cartSummary").textContent = total === 0 ? "Carrinho vazio" : total + " item(ns)";
+      const badge = document.getElementById("cartBadge");
+      if (badge) {
+        badge.textContent = String(total);
+        badge.classList.toggle("empty-badge", total === 0);
+      }
+      const summary = document.getElementById("cartSummary");
+      if (summary) {
+        summary.textContent = total === 0 ? "Carrinho vazio" : (total === 1 ? "1 item" : total + " itens");
+      }
+      const btn = document.getElementById("cartSummaryBtn");
+      if (btn) {
+        btn.style.display = total === 0 ? "none" : "inline-flex";
+      }
     }
 
     function atualizarCarrinhoUI() {
@@ -982,7 +1088,7 @@
       const totalEl = document.getElementById("cartTotal");
       const checkoutBtn = document.getElementById("checkoutBtn");
       if (carrinho.length === 0) {
-        container.innerHTML = '<div class="cart-empty"><span class="empty-icon">\u{1F6CC}</span>Seu carrinho ainda está vazio.</div>';
+       container.innerHTML = '<div class="cart-empty"><span class="empty-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color:var(--muted)"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg></span>Seu carrinho ainda está vazio.</div>';
         totalEl.textContent = "R$ 0,00";
         checkoutBtn.disabled = true;
         return;
@@ -997,7 +1103,7 @@
           '<img class="cart-item-img" src="' + (prod && prod.imagem_url ? prod.imagem_url : SEM_IMAGEM) + '" alt="" onerror="fallbackImg(this)">' +
           '<div class="cart-item-info"><div class="cart-item-name">' + (prod ? prod.nome : "Produto") + '</div>' + qtdHtml + tamanhoHtml + '</div>' +
           '<div class="cart-item-price">' + formatarPreco(item.preco_unitario * item.quantidade) + '</div>' +
-          '<button class="cart-item-remove" data-idx="' + idx + '" title="Remover">&times;</button>' +
+          '<button class="cart-item-remove" data-idx="' + idx + '" title="Remover item" aria-label="Remover item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6L6 18"></path><path d="M6 6l12 12"></path></svg></button>' +
           '</div>';
       }).join("");
       totalEl.textContent = formatarPreco(total);
@@ -1087,7 +1193,7 @@
       count.textContent = "Mostrando " + disponiveis.length + " produto(s)";
 
       if (disponiveis.length === 0) {
-        grid.innerHTML = '<div class="empty-state"><span class="empty-icon">\u{1F6C1}</span>Nenhum produto encontrado.';
+        grid.innerHTML = '<div class="empty-state"><span class="empty-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color:var(--muted)"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>Nenhum produto encontrado.</div>';
         return;
       }
 
@@ -1113,7 +1219,7 @@
           '<div class="product-price">' + formatarPreco(prod.preco) + '</div>' +
           stockHtml +
           botaoHtml +
-          '<a class="product-link" href="#" data-detail="' + prod.id + '">Ver detalhes →</a>' +
+          '<a class="product-link" href="#" data-detail="' + prod.id + '">Ver detalhes</a>' +
           '</div>';
       }
       grid.innerHTML = html;
@@ -1431,6 +1537,7 @@
       atualizarBadge();
       atualizarCarrinhoUI();
       document.getElementById("cartBtn").addEventListener("click", abrirCarrinho);
+      document.getElementById("cartSummaryBtn").addEventListener("click", abrirCarrinho);
       document.getElementById("cartClose").addEventListener("click", fecharCarrinho);
       document.getElementById("cartOverlay").addEventListener("click", fecharCarrinho);
       document.getElementById("checkoutBtn").addEventListener("click", abrirCheckout);
