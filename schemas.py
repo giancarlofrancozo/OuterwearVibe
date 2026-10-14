@@ -65,7 +65,7 @@ class ProdutoAtualizar(BaseModel):
 
 class ProdutoResposta(ProdutoCriar):
     id: int
-    aitvo : bool
+    ativo : bool
     
     model_config = {"from_attributes": True}
 
@@ -73,6 +73,28 @@ class ItemPedidoCriar(BaseModel):
     produto_id: int
     quantidade: int = 1
 
+class EnderecoEntrega(BaseModel):
+    cep: str
+    rua: str
+    numero: str
+    complemento: str | None = None
+    bairro: str
+    cidade: str
+    estado: str
+
+    @field_validator("cep")
+    @classmethod
+    def valida_cep(cls, valor):
+        if not re.fullmatch(r"\d{5}-?\d{3}", valor):
+            raise ValueError("CEP deve estar no formato 00000-000")
+        return valor
+
+    @field_validator("estado")
+    @classmethod
+    def valida_estado(cls, valor):
+        if len(valor) != 2:
+            raise ValueError("Estado deve ser a sigla com 2 letras, como SP")
+        return valor.upper()
 
 class PedidoCriar(BaseModel):
     itens: list[ItemPedidoCriar]
