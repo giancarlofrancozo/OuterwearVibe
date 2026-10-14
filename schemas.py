@@ -153,3 +153,4 @@ class PedidoResposta(BaseModel):
 class PedidoAtualizar(BaseModel):
     status: str | None = None
     codigo_rastreamento: str | None = None
+    

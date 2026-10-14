@@ -450,3 +450,5 @@ async def webhook_mercadopago(request: Request, db: Session = Depends(get_db)):
             db.commit()
 
     return {"ok": True}
+
+#uma loucura mexer com isso
