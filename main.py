@@ -376,6 +376,9 @@ def atualizar_pedido(
     db.refresh(pedido)
     return pedido
 
+@app.get("/admin/pedidos", response_model=list[schemas.PedidoResposta], dependencies=[Depends(verifica_admin)])
+def listar_pedidos_admin(db: Session = Depends(get_db)):
+    return db.query(models.Pedido).order_by(models.Pedido.data.desc()).all()
 
 @app.post("/pedidos/{pedido_id}/pagar")
 def pagar_pedido(

@@ -34,7 +34,7 @@
 </head>
 <body>
   <div class="container">
-    <h1>Painel de produtos</h1>
+    <h1>Painel da loja</h1>
 
     <div class="card">
       <label for="adminKey">Chave de administrador</label>
@@ -139,6 +139,17 @@
         <tbody id="lista"></tbody>
       </table>
     </div>
+
+    <div class="card">
+      <h2 style="margin-top:0;">Pedidos</h2>
+      <div class="msg" id="msgPedidos"></div>
+      <table>
+        <thead>
+          <tr><th>Pedido</th><th>Data</th><th>Entrega</th><th>Total</th><th>Status</th><th>Rastreio</th><th>Ações</th></tr>
+        </thead>
+        <tbody id="listaPedidos"></tbody>
+      </table>
+    </div>
   </div>
 
   <script>
@@ -148,6 +159,7 @@
     const msg = document.getElementById("msg");
     const msgEdicao = document.getElementById("msgEdicao");
     const msgLista = document.getElementById("msgLista");
+    const msgPedidos = document.getElementById("msgPedidos");
 
     function chave() { return document.getElementById("adminKey").value.trim(); }
 
@@ -192,6 +204,8 @@
       const nomes = texto.split(",").map(s => s.trim().toUpperCase()).filter(Boolean);
       return [...new Set(nomes)].map(nome => ({ nome }));
     }
+
+    // ---------- Produtos ----------
 
     async function carregarLista() {
       if (!chave()) {
@@ -317,6 +331,54 @@
         .forEach(id => document.getElementById(id).value = "");
     }
 
+    // ---------- Pedidos ----------
+
+    async function carregarPedidos() {
+      if (!chave()) {
+        mostrar(msgPedidos, "Digite a chave de administrador para ver os pedidos", "erro");
+        document.getElementById("listaPedidos").innerHTML = "";
+        return;
+      }
+      const res = await requisicaoAdmin("/admin/pedidos");
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        mostrar(msgPedidos, mensagemDeErro(res, data), "erro");
+        return;
+      }
+      const pedidos = await res.json();
+      msgPedidos.textContent = "";
+      document.getElementById("listaPedidos").innerHTML = pedidos.map(p => `
+        <tr>
+          <td>#${p.id}</td>
+          <td>${new Date(p.data).toLocaleDateString("pt-BR")}</td>
+          <td>${esc(p.rua)}, ${esc(p.numero)} - ${esc(p.cidade)}/${esc(p.estado)}</td>
+          <td>${formatarPreco(p.total)}</td>
+          <td>${esc(p.status)}</td>
+          <td><input type="text" id="rastreio-${p.id}" value="${esc(p.codigo_rastreamento || "")}" placeholder="Código" style="width:150px;"></td>
+          <td class="acoes">
+            <button data-pedido="${p.id}" data-acao="salvar-rastreio">Salvar rastreio</button>
+            <button class="ok" data-pedido="${p.id}" data-acao="marcar-enviado">Marcar enviado</button>
+          </td>
+        </tr>
+      `).join("");
+    }
+
+    async function atualizarPedidoAdmin(id, dados, mensagem) {
+      const res = await requisicaoAdmin("/admin/pedidos/" + id, {
+        method: "PATCH",
+        body: JSON.stringify(dados),
+      });
+      if (res.ok) {
+        mostrar(msgPedidos, mensagem, "ok");
+        carregarPedidos();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        mostrar(msgPedidos, mensagemDeErro(res, data), "erro");
+      }
+    }
+
+    // ---------- Eventos ----------
+
     document.getElementById("salvar").addEventListener("click", async () => {
       if (!chave()) { mostrar(msg, "Digite a chave de administrador", "erro"); return; }
 
@@ -348,7 +410,6 @@
       }
     });
 
-    // Ações da tabela (delegação de eventos)
     document.getElementById("lista").addEventListener("click", e => {
       const btn = e.target.closest("button[data-acao]");
       if (!btn) return;
@@ -358,9 +419,29 @@
       if (btn.dataset.acao === "excluir") excluirProduto(id);
     });
 
+    document.getElementById("listaPedidos").addEventListener("click", e => {
+      const btn = e.target.closest("button[data-acao]");
+      if (!btn) return;
+      const id = parseInt(btn.dataset.pedido);
+      const codigo = document.getElementById("rastreio-" + id).value.trim();
+
+      if (btn.dataset.acao === "salvar-rastreio") {
+        if (!codigo) { mostrar(msgPedidos, "Digite o código de rastreio", "erro"); return; }
+        atualizarPedidoAdmin(id, { codigo_rastreamento: codigo }, "Código de rastreio salvo");
+      }
+      if (btn.dataset.acao === "marcar-enviado") {
+        if (!codigo) { mostrar(msgPedidos, "Digite o código de rastreio antes de marcar como enviado", "erro"); return; }
+        atualizarPedidoAdmin(id, { status: "enviado", codigo_rastreamento: codigo }, "Pedido marcado como enviado");
+      }
+    });
+
     document.getElementById("salvarEdicao").addEventListener("click", salvarEdicao);
     document.getElementById("cancelarEdicao").addEventListener("click", fecharEdicao);
-    document.getElementById("adminKey").addEventListener("change", carregarLista);
+
+    document.getElementById("adminKey").addEventListener("change", () => {
+      carregarLista();
+      carregarPedidos();
+    });
   </script>
 </body>
 </html>
