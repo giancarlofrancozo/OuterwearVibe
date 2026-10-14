@@ -6,6 +6,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from passlib.context import CryptContext
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from database import engine, Base, SessionLocal
 from pagamentos import criar_link_pagamento, consultar_pagamento, consultar_pedido_mp
@@ -25,6 +26,9 @@ ADMIN_KEY = os.environ["ADMIN_KEY"]
 ALGORITHM = "HS256"
 TOKEN_EXPIRE_MINUTES = 60
 
+MINUTOS_PARA_PAGAR = 30
+STATUS_PENDENTE = ["aguardando pagamento", "Pagamento Pendente"]
+
 bearer = HTTPBearer()
 
 
@@ -34,6 +38,23 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+def cancelar_pedidos_vencidos(db: Session):
+    vencidos = (
+        db.query(models.Pedido)
+        .filter(
+            models.Pedido.status.in_(STATUS_PENDENTE),
+            models.Pedido.data < func.now() - timedelta(minutes=MINUTOS_PARA_PAGAR),
+        )
+        .all()
+    )
+    for pedido in vencidos:
+        for item in pedido.itens:
+            item.produto.estoque += item.quantidade
+        pedido.status = "cancelado"
+    if vencidos:
+        db.commit()
 
 
 def criar_token(cliente_id: int) -> str:
@@ -70,13 +91,15 @@ def verifica_admin(x_admin_key: str = Header(...)):
 def inicio():
     return {"message": "Loja no ar"}
 
-@app.get("/admin", include_in_schema=False)
-def painel_admin():
-    return FileResponse(os.path.join("static", "admin.html"))
 
 @app.get("/vitrine", include_in_schema=False)
 def vitrine():
     return FileResponse(os.path.join("static", "index.html"))
+
+
+@app.get("/admin", include_in_schema=False)
+def painel_admin():
+    return FileResponse(os.path.join("static", "admin.html"))
 
 
 @app.post("/clientes", response_model=schemas.ClienteResposta, status_code=201)
@@ -112,7 +135,12 @@ def login(dados: schemas.LoginEntrada, db: Session = Depends(get_db)):
 
 @app.get("/produtos", response_model=list[schemas.ProdutoResposta])
 def listar_produtos(db: Session = Depends(get_db)):
-    return db.query(models.Produto).filter(models.Produto.estoque > 0).all()
+    cancelar_pedidos_vencidos(db)
+    return (
+        db.query(models.Produto)
+        .filter(models.Produto.ativo == True, models.Produto.estoque > 0)
+        .all()
+    )
 
 
 @app.post("/produtos", response_model=schemas.ProdutoResposta, status_code=201, dependencies=[Depends(verifica_admin)])
@@ -124,12 +152,55 @@ def criar_produto(dados: schemas.ProdutoCriar, db: Session = Depends(get_db)):
     return produto
 
 
+@app.get("/admin/produtos", response_model=list[schemas.ProdutoResposta], dependencies=[Depends(verifica_admin)])
+def listar_todos_produtos(db: Session = Depends(get_db)):
+    return db.query(models.Produto).order_by(models.Produto.id).all()
+
+
+@app.patch("/admin/produtos/{produto_id}", response_model=schemas.ProdutoResposta, dependencies=[Depends(verifica_admin)])
+def atualizar_produto(
+    produto_id: int,
+    dados: schemas.ProdutoAtualizar,
+    db: Session = Depends(get_db),
+):
+    produto = db.query(models.Produto).filter(models.Produto.id == produto_id).first()
+    if not produto:
+        raise HTTPException(status_code=404, detail="Produto não encontrado")
+
+    for campo, valor in dados.model_dump(exclude_unset=True).items():
+        setattr(produto, campo, valor)
+
+    db.commit()
+    db.refresh(produto)
+    return produto
+
+
+@app.delete("/admin/produtos/{produto_id}", status_code=204, dependencies=[Depends(verifica_admin)])
+def excluir_produto(produto_id: int, db: Session = Depends(get_db)):
+    produto = db.query(models.Produto).filter(models.Produto.id == produto_id).first()
+    if not produto:
+        raise HTTPException(status_code=404, detail="Produto não encontrado")
+
+    ja_vendido = db.query(models.ItemPedido).filter(models.ItemPedido.produto_id == produto_id).first()
+    if ja_vendido:
+        raise HTTPException(
+            status_code=409,
+            detail="Produto já tem pedidos. Arquive o produto em vez de excluir.",
+        )
+
+    db.delete(produto)
+    db.commit()
+    return None
+
+
 @app.post("/pedidos", response_model=schemas.PedidoResposta, status_code=201)
 def criar_pedido(
     dados: schemas.PedidoCriar,
     cliente: models.Cliente = Depends(cliente_atual),
     db: Session = Depends(get_db),
 ):
+    cancelar_pedidos_vencidos(db)
+
     if not dados.itens:
         raise HTTPException(status_code=400, detail="O pedido precisa ter pelo menos um item")
 
@@ -207,53 +278,6 @@ def atualizar_pedido(
     db.refresh(pedido)
     return pedido
 
-@app.get("/admin/produtos", response_model=list[schemas.ProdutoResposta], dependencies=[Depends(verifica_admin)])
-def listar_todos_produtos(db: Session = Depends(get_db)):
-    return db.query(models.Produto).order_by(models.Produto.id).all()
-
-
-@app.patch("/admin/produtos/{produto_id}", response_model=schemas.ProdutoResposta, dependencies=[Depends(verifica_admin)])
-def atualizar_produto(
-    produto_id: int,
-    dados: schemas.ProdutoAtualizar,
-    db: Session = Depends(get_db),
-):
-    produto = db.query(models.Produto).filter(models.Produto.id == produto_id).first()
-    if not produto:
-        raise HTTPException(status_code=404, detail="Produto não encontrado")
-
-    for campo, valor in dados.model_dump(exclude_unset=True).items():
-        setattr(produto, campo, valor)
-
-    db.commit()
-    db.refresh(produto)
-    return produto
-
-
-@app.delete("/admin/produtos/{produto_id}", status_code=204, dependencies=[Depends(verifica_admin)])
-def excluir_produto(produto_id: int, db: Session = Depends(get_db)):
-    produto = db.query(models.Produto).filter(models.Produto.id == produto_id).first()
-    if not produto:
-        raise HTTPException(status_code=404, detail="Produto não encontrado")
-
-    ja_vendido = db.query(models.ItemPedido).filter(models.ItemPedido.produto_id == produto_id).first()
-    if ja_vendido:
-        raise HTTPException(
-            status_code=409,
-            detail="Produto já tem pedidos. Arquive o produto em vez de excluir.",
-        )
-
-    db.delete(produto)
-    db.commit()
-    return None
-
-@app.get("/produtos", response_model=list[schemas.ProdutoResposta])
-def listar_produtos(db: Session = Depends(get_db)):
-    return (
-        db.query(models.Produto)
-        .filter(models.Produto.ativo == True, models.Produto.estoque > 0)
-        .all()
-    )
 
 @app.post("/pedidos/{pedido_id}/pagar")
 def pagar_pedido(
@@ -261,6 +285,8 @@ def pagar_pedido(
     cliente: models.Cliente = Depends(cliente_atual),
     db: Session = Depends(get_db),
 ):
+    cancelar_pedidos_vencidos(db)
+
     pedido = (
         db.query(models.Pedido)
         .filter(models.Pedido.id == pedido_id, models.Pedido.cliente_id == cliente.id)
@@ -268,6 +294,8 @@ def pagar_pedido(
     )
     if not pedido:
         raise HTTPException(status_code=404, detail="Pedido não encontrado")
+    if pedido.status == "cancelado":
+        raise HTTPException(status_code=400, detail="Pedido cancelado por falta de pagamento. Faça um novo pedido.")
 
     itens = [
         {
