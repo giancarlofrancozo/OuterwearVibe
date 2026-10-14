@@ -6,7 +6,7 @@
   <title>Painel - Outerwear Vibe</title>
   <style>
     body { font-family:Arial,sans-serif; background:#f5f5f5; margin:0; padding:24px; color:#333; }
-    .container { max-width:900px; margin:0 auto; }
+    .container { max-width:1000px; margin:0 auto; }
     h1 { margin-top:0; }
     .card { background:#fff; border-radius:8px; padding:20px; box-shadow:0 1px 4px rgba(0,0,0,0.1); margin-bottom:24px; }
     .grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
@@ -14,13 +14,21 @@
     label { font-size:13px; color:#666; display:block; margin-bottom:4px; }
     input, textarea { width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; font-size:14px; box-sizing:border-box; }
     textarea { resize:vertical; min-height:60px; }
-    button { padding:10px 16px; border:none; border-radius:6px; background:#222; color:#fff; font-size:14px; cursor:pointer; }
+    button { padding:8px 12px; border:none; border-radius:6px; background:#222; color:#fff; font-size:13px; cursor:pointer; }
     button:hover { background:#444; }
+    button.secundario { background:#999; }
+    button.perigo { background:#c00; }
+    button.ok { background:#1a7f37; }
+    .acoes { display:flex; gap:6px; flex-wrap:wrap; }
     .msg { margin-top:12px; font-size:14px; }
     .msg.ok { color:#1a7f37; }
     .msg.erro { color:#c00; }
     table { width:100%; border-collapse:collapse; font-size:14px; }
-    th, td { text-align:left; padding:8px; border-bottom:1px solid #eee; }
+    th, td { text-align:left; padding:8px; border-bottom:1px solid #eee; vertical-align:middle; }
+    .inativo { color:#999; }
+    .tag { font-size:12px; padding:2px 8px; border-radius:10px; background:#eee; }
+    .tag.ativo { background:#e6f4ea; color:#1a7f37; }
+    #editarCard { display:none; border:2px solid #222; }
   </style>
 </head>
 <body>
@@ -31,6 +39,41 @@
       <label for="adminKey">Chave de administrador</label>
       <input type="password" id="adminKey" placeholder="Digite a chave para continuar">
       <p style="font-size:12px;color:#888;margin:6px 0 0;">A chave fica só nesta página. Se você recarregar, precisa digitar de novo.</p>
+    </div>
+
+    <div class="card" id="editarCard">
+      <h2 style="margin-top:0;">Editar produto <span id="editarId"></span></h2>
+      <div class="grid">
+        <div class="full">
+          <label for="editNome">Nome</label>
+          <input type="text" id="editNome">
+        </div>
+        <div class="full">
+          <label for="editDescricao">Descrição</label>
+          <textarea id="editDescricao"></textarea>
+        </div>
+        <div>
+          <label for="editPreco">Preço (R$)</label>
+          <input type="number" id="editPreco" step="0.01" min="0">
+        </div>
+        <div>
+          <label for="editEstoque">Estoque</label>
+          <input type="number" id="editEstoque" min="0" step="1">
+        </div>
+        <div>
+          <label for="editCategoria">Categoria</label>
+          <input type="text" id="editCategoria">
+        </div>
+        <div>
+          <label for="editImagem">Link da imagem</label>
+          <input type="text" id="editImagem">
+        </div>
+        <div class="full acoes">
+          <button class="ok" id="salvarEdicao">Salvar alterações</button>
+          <button class="secundario" id="cancelarEdicao">Cancelar</button>
+        </div>
+        <div class="full msg" id="msgEdicao"></div>
+      </div>
     </div>
 
     <div class="card">
@@ -68,10 +111,11 @@
     </div>
 
     <div class="card">
-      <h2 style="margin-top:0;">Produtos disponíveis</h2>
+      <h2 style="margin-top:0;">Todos os produtos</h2>
+      <div class="msg" id="msgLista"></div>
       <table>
         <thead>
-          <tr><th>ID</th><th>Nome</th><th>Preço</th><th>Estoque</th><th>Categoria</th></tr>
+          <tr><th>ID</th><th>Nome</th><th>Preço</th><th>Estoque</th><th>Situação</th><th>Ações</th></tr>
         </thead>
         <tbody id="lista"></tbody>
       </table>
@@ -79,29 +123,146 @@
   </div>
 
   <script>
-    const msg = document.getElementById("msg");
+    let produtosAdmin = [];
+    let produtoEmEdicao = null;
 
-    function mostrarMensagem(texto, tipo) {
-      msg.textContent = texto;
-      msg.className = "msg " + tipo;
+    const msg = document.getElementById("msg");
+    const msgEdicao = document.getElementById("msgEdicao");
+    const msgLista = document.getElementById("msgLista");
+
+    function chave() { return document.getElementById("adminKey").value.trim(); }
+
+    function mostrar(el, texto, tipo) {
+      el.textContent = texto;
+      el.className = "msg " + tipo;
     }
 
     function formatarPreco(v) {
       return Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
     }
 
+    function mensagemDeErro(res, data) {
+      if (res.status === 403) return "Chave de administrador incorreta";
+      if (res.status === 409) return data.detail || "Produto já tem pedidos";
+      if (Array.isArray(data.detail)) return "Erro " + res.status + ": " + data.detail.map(d => d.msg).join(" | ");
+      return "Erro " + res.status + ": " + (data.detail || "sem detalhe");
+    }
+
+    async function requisicaoAdmin(url, opts = {}) {
+      return fetch(url, {
+        ...opts,
+        headers: { "Content-Type": "application/json", "x-admin-key": chave(), ...(opts.headers || {}) },
+      });
+    }
+
     async function carregarLista() {
-      const res = await fetch("/produtos");
-      if (!res.ok) return;
-      const produtos = await res.json();
-      document.getElementById("lista").innerHTML = produtos.map(p =>
-        `<tr><td>${p.id}</td><td>${p.nome}</td><td>${formatarPreco(p.preco)}</td><td>${p.estoque}</td><td>${p.categoria || "-"}</td></tr>`
-      ).join("");
+      if (!chave()) {
+        mostrar(msgLista, "Digite a chave de administrador para ver os produtos", "erro");
+        document.getElementById("lista").innerHTML = "";
+        return;
+      }
+      const res = await requisicaoAdmin("/admin/produtos");
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        mostrar(msgLista, mensagemDeErro(res, data), "erro");
+        return;
+      }
+      produtosAdmin = await res.json();
+      msgLista.textContent = "";
+      document.getElementById("lista").innerHTML = produtosAdmin.map(p => `
+        <tr class="${p.ativo ? "" : "inativo"}">
+          <td>${p.id}</td>
+          <td>${p.nome}</td>
+          <td>${formatarPreco(p.preco)}</td>
+          <td>${p.estoque}</td>
+          <td><span class="tag ${p.ativo ? "ativo" : ""}">${p.ativo ? "Ativo" : "Arquivado"}</span></td>
+          <td class="acoes">
+            <button onclick="abrirEdicao(${p.id})">Editar</button>
+            <button class="secundario" onclick="alternarAtivo(${p.id})">${p.ativo ? "Arquivar" : "Reativar"}</button>
+            <button class="perigo" onclick="excluirProduto(${p.id})">Excluir</button>
+          </td>
+        </tr>
+      `).join("");
+    }
+
+    function abrirEdicao(id) {
+      produtoEmEdicao = produtosAdmin.find(p => p.id === id);
+      if (!produtoEmEdicao) return;
+      document.getElementById("editarId").textContent = "#" + id;
+      document.getElementById("editNome").value = produtoEmEdicao.nome || "";
+      document.getElementById("editDescricao").value = produtoEmEdicao.descricao || "";
+      document.getElementById("editPreco").value = produtoEmEdicao.preco;
+      document.getElementById("editEstoque").value = produtoEmEdicao.estoque;
+      document.getElementById("editCategoria").value = produtoEmEdicao.categoria || "";
+      document.getElementById("editImagem").value = produtoEmEdicao.imagem_url || "";
+      msgEdicao.textContent = "";
+      document.getElementById("editarCard").style.display = "block";
+      document.getElementById("editarCard").scrollIntoView({ behavior: "smooth" });
+    }
+
+    function fecharEdicao() {
+      produtoEmEdicao = null;
+      document.getElementById("editarCard").style.display = "none";
+    }
+
+    async function salvarEdicao() {
+      if (!produtoEmEdicao) return;
+      const dados = {
+        nome: document.getElementById("editNome").value.trim(),
+        descricao: document.getElementById("editDescricao").value.trim() || null,
+        preco: parseFloat(document.getElementById("editPreco").value),
+        estoque: parseInt(document.getElementById("editEstoque").value) || 0,
+        categoria: document.getElementById("editCategoria").value.trim() || null,
+        imagem_url: document.getElementById("editImagem").value.trim() || null,
+      };
+      if (!dados.nome || isNaN(dados.preco)) {
+        mostrar(msgEdicao, "Preencha pelo menos o nome e o preço", "erro");
+        return;
+      }
+      const res = await requisicaoAdmin("/admin/produtos/" + produtoEmEdicao.id, {
+        method: "PATCH",
+        body: JSON.stringify(dados),
+      });
+      if (res.ok) {
+        mostrar(msgEdicao, "Produto atualizado", "ok");
+        await carregarLista();
+        fecharEdicao();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        mostrar(msgEdicao, mensagemDeErro(res, data), "erro");
+      }
+    }
+
+    async function alternarAtivo(id) {
+      const produto = produtosAdmin.find(p => p.id === id);
+      if (!produto) return;
+      const res = await requisicaoAdmin("/admin/produtos/" + id, {
+        method: "PATCH",
+        body: JSON.stringify({ ativo: !produto.ativo }),
+      });
+      if (res.ok) {
+        await carregarLista();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        mostrar(msgLista, mensagemDeErro(res, data), "erro");
+      }
+    }
+
+    async function excluirProduto(id) {
+      const produto = produtosAdmin.find(p => p.id === id);
+      if (!confirm("Excluir \"" + (produto ? produto.nome : id) + "\"? Essa ação não pode ser desfeita.")) return;
+      const res = await requisicaoAdmin("/admin/produtos/" + id, { method: "DELETE" });
+      if (res.status === 204) {
+        mostrar(msgLista, "Produto excluído", "ok");
+        await carregarLista();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        mostrar(msgLista, mensagemDeErro(res, data), "erro");
+      }
     }
 
     document.getElementById("salvar").addEventListener("click", async () => {
-      const chave = document.getElementById("adminKey").value.trim();
-      if (!chave) { mostrarMensagem("Digite a chave de administrador", "erro"); return; }
+      if (!chave()) { mostrar(msg, "Digite a chave de administrador", "erro"); return; }
 
       const dados = {
         nome: document.getElementById("nome").value.trim(),
@@ -113,33 +274,26 @@
       };
 
       if (!dados.nome || isNaN(dados.preco)) {
-        mostrarMensagem("Preencha pelo menos o nome e o preço", "erro");
+        mostrar(msg, "Preencha pelo menos o nome e o preço", "erro");
         return;
       }
 
-      const res = await fetch("/produtos", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-admin-key": chave },
-        body: JSON.stringify(dados),
-      });
+      const res = await requisicaoAdmin("/produtos", { method: "POST", body: JSON.stringify(dados) });
 
       if (res.status === 201) {
-        mostrarMensagem("Produto cadastrado com sucesso", "ok");
+        mostrar(msg, "Produto cadastrado com sucesso", "ok");
         document.querySelectorAll("#nome, #descricao, #preco, #estoque, #categoria, #imagemUrl")
           .forEach(el => el.value = "");
         carregarLista();
-      } else if (res.status === 403) {
-        mostrarMensagem("Chave de administrador incorreta", "erro");
       } else {
-      const data = await res.json().catch(() => ({}));
-      const detalhe = Array.isArray(data.detail)
-        ? data.detail.map(d => d.loc.join(" > ") + ": " + d.msg).join(" | ")
-        : (data.detail || "sem detalhe");
-      mostrarMensagem("Erro " + res.status + ": " + detalhe, "erro");
-    } 
+        const data = await res.json().catch(() => ({}));
+        mostrar(msg, mensagemDeErro(res, data), "erro");
+      }
     });
 
-    carregarLista();
+    document.getElementById("salvarEdicao").addEventListener("click", salvarEdicao);
+    document.getElementById("cancelarEdicao").addEventListener("click", fecharEdicao);
+    document.getElementById("adminKey").addEventListener("change", carregarLista);
   </script>
 </body>
 </html>
