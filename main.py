@@ -340,7 +340,14 @@ async def webhook_mercadopago(request: Request, db: Session = Depends(get_db)):
 
     if pago and pedido_ref:
         pedido = db.query(models.Pedido).filter(models.Pedido.id == int(pedido_ref)).first()
-        if pedido and pedido.status != "pago":
+        if pedido is None:
+            return {"ok": True}
+
+        if pedido.status == "cancelado":
+            print(f"ATENÇÃO: pagamento aprovado para pedido cancelado #{pedido.id}. Verificar reembolso.")
+            return {"ok": True}
+
+        if pedido.status != "pago":
             pedido.status = "pago"
             db.commit()
 
