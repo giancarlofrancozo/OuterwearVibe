@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, ForeignKey
 from database import Base
 
 
@@ -26,7 +26,7 @@ class Produto(Base):
     imagem_url = Column(String)
     estoque = Column(Integer, nullable=False, default=0)
     categoria = Column(String, index=True)
-
+    ativo = Column(Boolean, nullable=False, default=True)
 
 from datetime import datetime
 from sqlalchemy import DateTime, ForeignKey, func
