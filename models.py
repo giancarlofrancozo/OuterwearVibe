@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String
 from database import Base
 
 
@@ -26,7 +26,10 @@ class Produto(Base):
     imagem_url = Column(String)
     estoque = Column(Integer, nullable=False, default=0)
     categoria = Column(String, index=True)
-    ativo = Column(Boolean, nullable=False, default=True)
+
+    imagens = relationship("ImagemProduto", back_populates="produto", cascade="all, delete-orphan", order_by="ImagemProduto.posicao", lazy="selectin")
+    tamanhos = relationship("TamanhoProduto", back_populates="produto", cascade="all, delete-orphan", lazy="selectin")
+
 
 from datetime import datetime
 from sqlalchemy import DateTime, ForeignKey, func
@@ -58,7 +61,27 @@ class ItemPedido(Base):
     produto_id = Column(Integer, ForeignKey("produtos.id"), nullable=False, index=True)
     quantidade = Column(Integer, nullable=False, default=1)
     preco_unitario = Column(Float, nullable=False)
+    tamanho = Column(String, nullable=True)
 
     pedido = relationship("Pedido", back_populates="itens")
     produto = relationship("Produto")
+
+
+class ImagemProduto(Base):
+    __tablename__ = "imagens_produto"
+    id = Column(Integer, primary_key=True, index=True)
+    produto_id = Column(Integer, ForeignKey("produtos.id"), nullable=False, index=True)
+    posicao = Column(Integer, nullable=False, default=0)
+    url = Column(String, nullable=False)
+
+    produto = relationship("Produto", back_populates="imagens")
+
+
+class TamanhoProduto(Base):
+    __tablename__ = "tamanhos_produto"
+    id = Column(Integer, primary_key=True, index=True)
+    produto_id = Column(Integer, ForeignKey("produtos.id"), nullable=False, index=True)
+    nome = Column(String, nullable=False)
+
+    produto = relationship("Produto", back_populates="tamanhos")
 

@@ -36,13 +36,26 @@ class ClienteResposta(BaseModel):
 
     model_config = {"from_attributes": True}
 
+
 class LoginEntrada(BaseModel):
     email: str
     senha: str
 
+
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
+
+
+class ImagemProdutoCriar(BaseModel):
+    url: str
+    posicao: int = 0
+    model_config = {"from_attributes": True}
+
+
+class TamanhoProdutoCriar(BaseModel):
+    nome: str
+    model_config = {"from_attributes": True}
 
 
 class ProdutoCriar(BaseModel):
@@ -52,26 +65,28 @@ class ProdutoCriar(BaseModel):
     imagem_url: str | None = None
     estoque: int = 0
     categoria: str | None = None
+    imagens: list[ImagemProdutoCriar] = []
+    tamanhos: list[TamanhoProdutoCriar] = []
+
+
+class ProdutoResposta(ProdutoCriar):
+    id: int
+    ativo: bool
+
+    model_config = {"from_attributes": True}
+
 
 class ProdutoAtualizar(BaseModel):
     nome: str | None = None
     descricao: str | None = None
     preco: float | None = None
+    imagem_url: str | None = None
     estoque: int | None = None
     categoria: str | None = None
-    imagem_url: str | None = None
     ativo: bool | None = None
+    imagens: list[ImagemProdutoCriar] | None = None
+    tamanhos: list[TamanhoProdutoCriar] | None = None
 
-
-class ProdutoResposta(ProdutoCriar):
-    id: int
-    ativo : bool
-    
-    model_config = {"from_attributes": True}
-
-class ItemPedidoCriar(BaseModel):
-    produto_id: int
-    quantidade: int = 1
 
 class EnderecoEntrega(BaseModel):
     cep: str
@@ -96,17 +111,25 @@ class EnderecoEntrega(BaseModel):
             raise ValueError("Estado deve ser a sigla com 2 letras, como SP")
         return valor.upper()
 
-class PedidoCriar(BaseModel):
-    itens: list[ItemPedidoCriar]
-    endereco: EnderecoEntrega
+
+class ItemPedidoCriar(BaseModel):
+    produto_id: int
+    quantidade: int = 1
+    tamanho: str | None = None
 
 
 class ItemPedidoResposta(BaseModel):
     produto_id: int
     quantidade: int
     preco_unitario: float
+    tamanho: str | None = None
 
     model_config = {"from_attributes": True}
+
+
+class PedidoCriar(BaseModel):
+    itens: list[ItemPedidoCriar]
+    endereco: EnderecoEntrega
 
 
 class PedidoResposta(BaseModel):
@@ -125,6 +148,7 @@ class PedidoResposta(BaseModel):
     itens: list[ItemPedidoResposta]
 
     model_config = {"from_attributes": True}
+
 
 class PedidoAtualizar(BaseModel):
     status: str | None = None

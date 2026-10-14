@@ -7,11 +7,46 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from passlib.context import CryptContext
 from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from database import engine, Base, SessionLocal
 from pagamentos import criar_link_pagamento, consultar_pagamento, consultar_pedido_mp
 import models
 import schemas
+
+
+MINUTOS_PARA_PAGAR = 30
+STATUS_PENDENTE = ["aguardando pagamento", "Pagamento Pendente"]
+
+
+def _parse_imagens(dados_imagens):
+    """Converte a lista enviada pelo cliente em objetos ImagemProduto."""
+    imagens = []
+    for i, img in enumerate(dados_imagens):
+        if getattr(img, "url", None):
+            imagens.append(models.ImagemProduto(url=img.url, posicao=getattr(img, "posicao", i)))
+    return imagens
+
+
+def _parse_tamanhos(dados_tamanhos):
+    """Converte a lista enviada pelo cliente em objetos TamanhoProduto."""
+    return [models.TamanhoProduto(nome=t.nome.strip()) for t in dados_tamanhos if getattr(t, "nome", None)]
+
+
+def _sync_imagens(produto, novas_imagens):
+    """Substitui as imagens do produto pela lista informada."""
+    for img in list(produto.imagens):
+        produto.imagens.remove(img)
+    for img in _parse_imagens(novas_imagens):
+        produto.imagens.append(img)
+
+
+def _sync_tamanhos(produto, novos_tamanhos):
+    """Substitui os tamanhos do produto pela lista informada."""
+    for t in list(produto.tamanhos):
+        produto.tamanhos.remove(t)
+    for t in _parse_tamanhos(novos_tamanhos):
+        produto.tamanhos.append(t)
+
 
 Base.metadata.create_all(bind=engine)
 
@@ -26,9 +61,6 @@ ADMIN_KEY = os.environ["ADMIN_KEY"]
 ALGORITHM = "HS256"
 TOKEN_EXPIRE_MINUTES = 60
 
-MINUTOS_PARA_PAGAR = 30
-STATUS_PENDENTE = ["aguardando pagamento", "Pagamento Pendente"]
-
 bearer = HTTPBearer()
 
 
@@ -41,6 +73,7 @@ def get_db():
 
 
 def cancelar_pedidos_vencidos(db: Session):
+    """Cancela pedidos sem pagamento após o prazo e devolve o estoque."""
     vencidos = (
         db.query(models.Pedido)
         .filter(
@@ -92,14 +125,14 @@ def inicio():
     return {"message": "Loja no ar"}
 
 
-@app.get("/vitrine", include_in_schema=False)
-def vitrine():
-    return FileResponse(os.path.join("static", "index.html"))
-
-
 @app.get("/admin", include_in_schema=False)
 def painel_admin():
     return FileResponse(os.path.join("static", "admin.html"))
+
+
+@app.get("/vitrine", include_in_schema=False)
+def vitrine():
+    return FileResponse(os.path.join("static", "index.html"))
 
 
 @app.post("/clientes", response_model=schemas.ClienteResposta, status_code=201)
@@ -138,23 +171,44 @@ def listar_produtos(db: Session = Depends(get_db)):
     cancelar_pedidos_vencidos(db)
     return (
         db.query(models.Produto)
+        .options(
+            selectinload(models.Produto.imagens),
+            selectinload(models.Produto.tamanhos),
+        )
         .filter(models.Produto.ativo == True, models.Produto.estoque > 0)
+        .all()
+    )
+
+
+@app.get("/admin/produtos", response_model=list[schemas.ProdutoResposta], dependencies=[Depends(verifica_admin)])
+def listar_todos_produtos(db: Session = Depends(get_db)):
+    return (
+        db.query(models.Produto)
+        .options(
+            selectinload(models.Produto.imagens),
+            selectinload(models.Produto.tamanhos),
+        )
+        .order_by(models.Produto.id)
         .all()
     )
 
 
 @app.post("/produtos", response_model=schemas.ProdutoResposta, status_code=201, dependencies=[Depends(verifica_admin)])
 def criar_produto(dados: schemas.ProdutoCriar, db: Session = Depends(get_db)):
-    produto = models.Produto(**dados.model_dump())
+    dump = dados.model_dump(exclude={"imagens", "tamanhos"})
+    produto = models.Produto(**dump)
     db.add(produto)
     db.commit()
     db.refresh(produto)
+
+    if dados.imagens:
+        _sync_imagens(produto, dados.imagens)
+    if dados.tamanhos:
+        _sync_tamanhos(produto, dados.tamanhos)
+
+    db.commit()
+    db.refresh(produto)
     return produto
-
-
-@app.get("/admin/produtos", response_model=list[schemas.ProdutoResposta], dependencies=[Depends(verifica_admin)])
-def listar_todos_produtos(db: Session = Depends(get_db)):
-    return db.query(models.Produto).order_by(models.Produto.id).all()
 
 
 @app.patch("/admin/produtos/{produto_id}", response_model=schemas.ProdutoResposta, dependencies=[Depends(verifica_admin)])
@@ -163,12 +217,36 @@ def atualizar_produto(
     dados: schemas.ProdutoAtualizar,
     db: Session = Depends(get_db),
 ):
-    produto = db.query(models.Produto).filter(models.Produto.id == produto_id).first()
+    produto = (
+        db.query(models.Produto)
+        .options(
+            selectinload(models.Produto.imagens),
+            selectinload(models.Produto.tamanhos),
+        )
+        .filter(models.Produto.id == produto_id)
+        .first()
+    )
     if not produto:
         raise HTTPException(status_code=404, detail="Produto não encontrado")
 
-    for campo, valor in dados.model_dump(exclude_unset=True).items():
-        setattr(produto, campo, valor)
+    if dados.nome is not None:
+        produto.nome = dados.nome
+    if dados.descricao is not None:
+        produto.descricao = dados.descricao
+    if dados.preco is not None:
+        produto.preco = dados.preco
+    if dados.imagem_url is not None:
+        produto.imagem_url = dados.imagem_url
+    if dados.estoque is not None:
+        produto.estoque = dados.estoque
+    if dados.categoria is not None:
+        produto.categoria = dados.categoria
+    if dados.ativo is not None:
+        produto.ativo = dados.ativo
+    if dados.imagens is not None:
+        _sync_imagens(produto, dados.imagens)
+    if dados.tamanhos is not None:
+        _sync_tamanhos(produto, dados.tamanhos)
 
     db.commit()
     db.refresh(produto)
@@ -211,11 +289,30 @@ def criar_pedido(
         if item.quantidade <= 0:
             raise HTTPException(status_code=400, detail="A quantidade deve ser maior que zero")
 
-        produto = db.query(models.Produto).filter(models.Produto.id == item.produto_id).first()
-        if not produto:
+        produto = (
+            db.query(models.Produto)
+            .options(selectinload(models.Produto.tamanhos))
+            .filter(models.Produto.id == item.produto_id)
+            .first()
+        )
+        if not produto or not produto.ativo:
             raise HTTPException(status_code=404, detail=f"Produto {item.produto_id} não encontrado")
         if produto.estoque < item.quantidade:
             raise HTTPException(status_code=400, detail=f"Estoque insuficiente para {produto.nome}")
+
+        tamanho_escolhido = (item.tamanho or "").strip()
+        if produto.tamanhos:
+            if not tamanho_escolhido:
+                raise HTTPException(status_code=400, detail=f"Escolha um tamanho para {produto.nome}")
+            nomes_tamanhos = {t.nome.strip().upper(): t.nome.strip() for t in produto.tamanhos}
+            if tamanho_escolhido.upper() not in nomes_tamanhos:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Tamanho inválido para {produto.nome}. Tamanhos disponíveis: {', '.join(nomes_tamanhos.values())}",
+                )
+            tamanho_escolhido = nomes_tamanhos[tamanho_escolhido.upper()]
+        else:
+            tamanho_escolhido = None
 
         produto.estoque -= item.quantidade
         total += produto.preco * item.quantidade
@@ -224,6 +321,7 @@ def criar_pedido(
                 produto_id=produto.id,
                 quantidade=item.quantidade,
                 preco_unitario=produto.preco,
+                tamanho=tamanho_escolhido,
             )
         )
 
@@ -299,7 +397,7 @@ def pagar_pedido(
 
     itens = [
         {
-            "titulo": item.produto.nome,
+            "titulo": f"{item.produto.nome} - {item.tamanho}" if item.tamanho else item.produto.nome,
             "quantidade": item.quantidade,
             "preco_unitario": item.preco_unitario,
         }
