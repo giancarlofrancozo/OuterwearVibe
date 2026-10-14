@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, String, DateTime, Float, ForeignKey, Boolean
 from database import Base
 
 
@@ -15,6 +15,9 @@ class Cliente(Base):
 
 from sqlalchemy import Float, ForeignKey, DateTime, func
 from sqlalchemy.orm import relationship
+from datetime import datetime
+from sqlalchemy import DateTime, ForeignKey, func
+from sqlalchemy.orm import relationship
 
 class Produto(Base):
     __tablename__ = "produtos"
@@ -26,14 +29,10 @@ class Produto(Base):
     imagem_url = Column(String)
     estoque = Column(Integer, nullable=False, default=0)
     categoria = Column(String, index=True)
+    ativo = Column(Boolean, nullable=False, default=True)
 
     imagens = relationship("ImagemProduto", back_populates="produto", cascade="all, delete-orphan", order_by="ImagemProduto.posicao", lazy="selectin")
     tamanhos = relationship("TamanhoProduto", back_populates="produto", cascade="all, delete-orphan", lazy="selectin")
-
-
-from datetime import datetime
-from sqlalchemy import DateTime, ForeignKey, func
-from sqlalchemy.orm import relationship
 
 class Pedido(Base):
     __tablename__ = "pedidos"
